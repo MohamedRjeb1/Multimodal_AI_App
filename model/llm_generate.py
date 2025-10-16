@@ -1,38 +1,49 @@
-import tiktoken
-from textLoader import documents
-from langchain.chains import RetrievalQA
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chat_models import ChatOpenAI
 import os
 from dotenv import load_dotenv
+
+from textLoader import documents
+
+# LangChain + Google GenAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain.chains import RetrievalQA
 from langchain.vectorstores import DocArrayInMemorySearch
 
-
+# ta variable `documents` : liste de Document (LangChain) ou objets similaires
+# from textLoader import documents
 
 load_dotenv()
-embeddeding_model = "text-embedding-3-small"
-encoding = tiktoken.get_encoding("cl100k_base")
-
-db = DocArrayInMemorySearch.from_documents(documents, encoding)
-
-retriever = db.as_retriever()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise RuntimeError("Set GOOGLE_API_KEY in your .env")
 
 
 
-
-
-
-Gemini = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=os.getenv('GOOGLE_API_KEY'))
+embeddings = GoogleGenerativeAIEmbeddings()  
 
 
 
 
+db = DocArrayInMemorySearch.from_documents(documents, embedding=embeddings)
 
-qa_stuff = RetrievalQA.from_chain_type(llm=Gemini, chain_type="stuff",
-                                        retriever=retriever, 
-                                        verbose=True)
+# Créer un retriever à partir du vectorstore
+retriever = db.as_retriever(search_type="similarity", search_kwargs={"k": 1})
+
+
+
+
+# 4) Initialiser Gemini (Chat) — option transport="rest" si besoin
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=GOOGLE_API_KEY)
+
+# 5) Construire la pipeline RAG (RetrievalQA)
+qa = RetrievalQA.from_chain_type(
+    llm=llm,
+    chain_type="refine",   # ou "map_reduce", "refine" selon la taille / préférences
+    retriever=retriever,
+    verbose=True,
+    
+)
+
+# 6) Lancer une requête
 query = "what is this tutorial about?"
-
-response = qa_stuff.run(query)
-
+response = qa.run(query)
 print(response)

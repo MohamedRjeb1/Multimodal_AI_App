@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 import yt_dlp as youtube_dl
 import glob
 
+
+from model import Settings, get_settings
+
 from yt_dlp import DownloadError
 
 load_dotenv()
@@ -22,7 +25,7 @@ ydl_config = {
 }
 
 
-# check directory existence
+# check if output_dir exists, if not create it
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)

@@ -1,13 +1,7 @@
-import os 
+from fastapi import FastAPI
 
-import glob 
+from routes.base import base_router
 
-import openai
+app = FastAPI()
 
-import yt_dlp as youtube_dl
-
-from yt_dlp import DownloadError
-
-import docarray
-
-
+app.include_router(base_router)
