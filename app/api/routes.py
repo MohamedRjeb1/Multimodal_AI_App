@@ -8,16 +8,20 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.models.schemas import (
     YouTubeRequest, ProcessingResponse, TranscriptResponse, 
-    QueryRequest, QueryResponse, ErrorResponse, HealthResponse
+    QueryRequest, QueryResponse, ErrorResponse, HealthResponse,
+    CourseRequest, CourseResponse, CourseQueryRequest, CourseQueryResponse,
+    CourseStatistics, VideoInfo
 )
 from app.services.rag_service import AdvancedRAGService
+from app.services.course_service import AdvancedCourseService
 from app.models.schemas import ProcessingStatus
 
 # Initialize router
 router = APIRouter()
 
-# Initialize RAG service
+# Initialize services
 rag_service = AdvancedRAGService()
+course_service = AdvancedCourseService()
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -254,4 +258,225 @@ async def get_task_statistics(task_id: str) -> Dict[str, Any]:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get statistics: {str(e)}"
+        )
+
+
+# ===== FORMATION MULTI-VIDÉOS ROUTES =====
+
+@router.post("/courses", response_model=CourseResponse)
+async def create_course(request: CourseRequest) -> CourseResponse:
+    """
+    Create a new multi-video course.
+    
+    This endpoint allows users to create a formation with multiple videos
+    that will be processed and linked together for intelligent querying.
+    """
+    try:
+        course = course_service.create_course(request)
+        return course
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create course: {str(e)}"
+        )
+
+
+@router.post("/courses/{course_id}/process")
+async def process_course(
+    course_id: str,
+    processing_strategy: str = "sequential",
+    background_tasks: BackgroundTasks = None
+) -> Dict[str, Any]:
+    """
+    Process all videos in a course.
+    
+    Args:
+        course_id: Course identifier
+        processing_strategy: Processing strategy (sequential, parallel, hybrid)
+    """
+    try:
+        if background_tasks:
+            # Process in background
+            background_tasks.add_task(
+                course_service.process_course,
+                course_id,
+                processing_strategy
+            )
+            return {
+                "message": f"Course {course_id} processing started",
+                "course_id": course_id,
+                "strategy": processing_strategy
+            }
+        else:
+            # Process synchronously
+            result = course_service.process_course(course_id, processing_strategy)
+            return result
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process course: {str(e)}"
+        )
+
+
+@router.get("/courses/{course_id}", response_model=CourseResponse)
+async def get_course(course_id: str) -> CourseResponse:
+    """Get course information."""
+    try:
+        if course_id not in course_service.courses:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Course {course_id} not found"
+            )
+        
+        return course_service.courses[course_id]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get course: {str(e)}"
+        )
+
+
+@router.post("/courses/{course_id}/query", response_model=CourseQueryResponse)
+async def query_course(
+    course_id: str,
+    request: CourseQueryRequest
+) -> CourseQueryResponse:
+    """
+    Query a course with cross-video retrieval capabilities.
+    
+    This endpoint allows intelligent querying across multiple videos
+    in a formation, with automatic cross-video context linking.
+    """
+    try:
+        # Ensure course_id matches
+        request.course_id = course_id
+        
+        result = course_service.query_course(request)
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query course: {str(e)}"
+        )
+
+
+@router.get("/courses/{course_id}/statistics", response_model=CourseStatistics)
+async def get_course_statistics(course_id: str) -> CourseStatistics:
+    """Get detailed statistics for a course."""
+    try:
+        stats = course_service.get_course_statistics(course_id)
+        return stats
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get course statistics: {str(e)}"
+        )
+
+
+@router.get("/courses/{course_id}/videos/{video_id}")
+async def get_video_info(course_id: str, video_id: str) -> Dict[str, Any]:
+    """Get information about a specific video in a course."""
+    try:
+        if course_id not in course_service.courses:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Course {course_id} not found"
+            )
+        
+        course = course_service.courses[course_id]
+        video = next((v for v in course.videos if v.video_id == video_id), None)
+        
+        if not video:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Video {video_id} not found in course {course_id}"
+            )
+        
+        return {
+            "video_id": video.video_id,
+            "title": video.title,
+            "url": str(video.url),
+            "duration": video.duration,
+            "order": video.order,
+            "status": video.status,
+            "transcript_length": len(video.transcript) if video.transcript else 0,
+            "created_at": video.created_at
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get video info: {str(e)}"
+        )
+
+
+@router.get("/courses")
+async def list_courses() -> Dict[str, Any]:
+    """List all courses."""
+    try:
+        courses = []
+        for course_id, course in course_service.courses.items():
+            courses.append({
+                "course_id": course_id,
+                "course_name": course.course_name,
+                "course_description": course.course_description,
+                "total_videos": course.total_videos,
+                "processed_videos": course.processed_videos,
+                "status": course.status,
+                "created_at": course.created_at
+            })
+        
+        return {
+            "courses": courses,
+            "total_courses": len(courses)
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list courses: {str(e)}"
+        )
+
+
+@router.delete("/courses/{course_id}")
+async def delete_course(course_id: str) -> Dict[str, Any]:
+    """Delete a course and all its associated data."""
+    try:
+        if course_id not in course_service.courses:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Course {course_id} not found"
+            )
+        
+        # Remove from memory
+        del course_service.courses[course_id]
+        
+        # Clean up files (implementation would depend on storage strategy)
+        # course_service.cleanup_course(course_id)
+        
+        return {
+            "message": f"Course {course_id} deleted successfully",
+            "course_id": course_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete course: {str(e)}"
         )

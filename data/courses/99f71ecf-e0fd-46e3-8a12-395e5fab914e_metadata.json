@@ -1,0 +1,42 @@
+{
+  "course_id": "99f71ecf-e0fd-46e3-8a12-395e5fab914e",
+  "course_name": "Formation Test Multi-Vid\u00e9os",
+  "course_description": "Une formation de test avec plusieurs vid\u00e9os pour tester les fonctionnalit\u00e9s cross-vid\u00e9os",
+  "total_videos": 3,
+  "processed_videos": 0,
+  "status": "pending",
+  "videos": [
+    {
+      "video_id": "1e98380d-3925-4bee-a043-b9abd419a554",
+      "url": "https://youtu.be/rjsbLZhO8Jo?si=-TqdVDCcNszn59Ec",
+      "title": "Video 1",
+      "duration": null,
+      "order": 0,
+      "status": "pending",
+      "transcript": null,
+      "created_at": "2025-10-19 19:36:51.357488"
+    },
+    {
+      "video_id": "3738095c-b5d6-4f4d-9b5d-825bc5e9c8de",
+      "url": "https://youtu.be/dQw4w9WgXcQ",
+      "title": "Video 2",
+      "duration": null,
+      "order": 1,
+      "status": "pending",
+      "transcript": null,
+      "created_at": "2025-10-19 19:36:51.357488"
+    },
+    {
+      "video_id": "1efbca7e-652a-4dfa-a187-2cdf71e3ea40",
+      "url": "https://youtu.be/9bZkp7q19f0",
+      "title": "Video 3",
+      "duration": null,
+      "order": 2,
+      "status": "pending",
+      "transcript": null,
+      "created_at": "2025-10-19 19:36:51.357488"
+    }
+  ],
+  "created_at": "2025-10-19 19:36:51.358993",
+  "updated_at": null
+}

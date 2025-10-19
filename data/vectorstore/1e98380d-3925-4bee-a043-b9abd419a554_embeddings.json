@@ -1,0 +1,9 @@
+{
+  "task_id": "1e98380d-3925-4bee-a043-b9abd419a554",
+  "created_at": "2025-10-19T19:38:11.361936",
+  "embedding_model": "google",
+  "chunk_size": 1000,
+  "chunk_overlap": 200,
+  "total_chunks": 0,
+  "embeddings": []
+}

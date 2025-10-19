@@ -3,8 +3,8 @@ Configuration settings for the Advanced RAG Application.
 """
 import os
 from typing import Optional, List
-from pydantic import BaseSettings, Field, validator
-from pydantic_settings import SettingsConfigDict
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     AUDIO_DIR: str = Field(default="data/audio", description="Audio files directory")
     TRANSCRIPT_DIR: str = Field(default="data/transcripts", description="Transcripts directory")
     VECTORSTORE_DIR: str = Field(default="data/vectorstore", description="Vector store directory")
+    COURSES_DIR: str = Field(default="data/courses", description="Courses directory")
     
     # API Keys
     GOOGLE_API_KEY: Optional[str] = Field(default=None, description="Google API key")
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
     YOUTUBE_DOWNLOAD_FORMAT: str = Field(default="bestaudio", description="YouTube download format")
     YOUTUBE_AUDIO_QUALITY: str = Field(default="192", description="Audio quality")
     
-    @validator("DATA_DIR", "AUDIO_DIR", "TRANSCRIPT_DIR", "VECTORSTORE_DIR")
+    @validator("DATA_DIR", "AUDIO_DIR", "TRANSCRIPT_DIR", "VECTORSTORE_DIR", "COURSES_DIR")
     def create_directories(cls, v):
         """Create directories if they don't exist."""
         os.makedirs(v, exist_ok=True)
@@ -71,9 +72,6 @@ class Settings(BaseSettings):
             return None
         return v
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
 
 
 # Global settings instance
