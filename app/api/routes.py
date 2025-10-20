@@ -14,6 +14,7 @@ from app.models.schemas import (
 )
 from app.services.rag_service import AdvancedRAGService
 from app.services.course_service import AdvancedCourseService
+from app.services.combined_rag_service import CombinedRAGService
 from app.models.schemas import ProcessingStatus
 
 # Initialize router
@@ -22,6 +23,7 @@ router = APIRouter()
 # Initialize services
 rag_service = AdvancedRAGService()
 course_service = AdvancedCourseService()
+combined_rag_service = CombinedRAGService()
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -479,4 +481,182 @@ async def delete_course(course_id: str) -> Dict[str, Any]:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete course: {str(e)}"
+        )
+
+
+# ===== STRATÉGIE COMBINATOIRE ROUTES =====
+
+@router.post("/combined/process", response_model=ProcessingResponse)
+async def process_video_combined(
+    request: YouTubeRequest,
+    background_tasks: BackgroundTasks
+) -> ProcessingResponse:
+    """
+    Traite une vidéo YouTube avec la stratégie combinatoire avancée.
+    
+    Cette stratégie intègre :
+    - Chunking sémantique dynamique
+    - Indexation par résumé avec modèle fine-tuné
+    - Clustering sémantique
+    - Memory RAG avec contexte historique
+    - Corrective RAG avec grading et refinement
+    """
+    try:
+        # Générer un ID de tâche unique
+        import uuid
+        task_id = str(uuid.uuid4())
+        
+        # Démarrer le traitement en arrière-plan
+        background_tasks.add_task(
+            combined_rag_service.process_video_with_combined_strategy,
+            str(request.url),
+            task_id,
+            request.language
+        )
+        
+        return ProcessingResponse(
+            task_id=task_id,
+            status=ProcessingStatus.PENDING,
+            message="Traitement combinatoire démarré"
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Échec du démarrage du traitement combinatoire: {str(e)}"
+        )
+
+
+@router.post("/combined/query")
+async def query_video_combined(
+    request: QueryRequest,
+    user_id: str = None,
+    session_id: str = None
+) -> Dict[str, Any]:
+    """
+    Interroge une vidéo traitée avec la stratégie combinatoire.
+    
+    Cette stratégie utilise :
+    - Memory RAG pour enrichir le contexte avec l'historique
+    - Corrective RAG pour grader et raffiner les connaissances
+    - Génération de réponse avec contexte enrichi
+    """
+    try:
+        result = combined_rag_service.query_with_combined_strategy(
+            query=request.query,
+            task_id=request.task_id,
+            user_id=user_id,
+            session_id=session_id,
+            max_results=request.max_results
+        )
+        
+        if "error" in result:
+            raise HTTPException(
+                status_code=400,
+                detail=result["message"]
+            )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Échec du traitement de la requête combinatoire: {str(e)}"
+        )
+
+
+@router.get("/combined/stats/{task_id}")
+async def get_combined_statistics(task_id: str) -> Dict[str, Any]:
+    """Obtient les statistiques complètes de la stratégie combinatoire."""
+    try:
+        stats = combined_rag_service.get_combined_strategy_statistics(task_id)
+        
+        if "error" in stats:
+            raise HTTPException(
+                status_code=404,
+                detail=stats["error"]
+            )
+        
+        return stats
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Échec de l'obtention des statistiques combinatoires: {str(e)}"
+        )
+
+
+@router.delete("/combined/cleanup/{task_id}")
+async def cleanup_combined_task(task_id: str) -> Dict[str, Any]:
+    """Nettoie toutes les données d'une tâche pour la stratégie combinatoire."""
+    try:
+        success = combined_rag_service.cleanup_combined_task(task_id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Échec du nettoyage de la tâche combinatoire"
+            )
+        
+        return {
+            "message": f"Tâche combinatoire {task_id} nettoyée avec succès",
+            "task_id": task_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Échec du nettoyage combinatoire: {str(e)}"
+        )
+
+
+@router.get("/combined/memory/history")
+async def get_memory_history(
+    user_id: str = None,
+    session_id: str = None
+) -> Dict[str, Any]:
+    """Obtient l'historique Memory RAG."""
+    try:
+        stats = combined_rag_service.memory_rag.get_history_statistics(
+            user_id=user_id,
+            session_id=session_id
+        )
+        
+        return stats
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Échec de l'obtention de l'historique Memory RAG: {str(e)}"
+        )
+
+
+@router.delete("/combined/memory/clear")
+async def clear_memory_history(
+    user_id: str = None,
+    session_id: str = None
+) -> Dict[str, Any]:
+    """Efface l'historique Memory RAG."""
+    try:
+        combined_rag_service.memory_rag.clear_history(
+            user_id=user_id,
+            session_id=session_id
+        )
+        
+        return {
+            "message": "Historique Memory RAG effacé avec succès",
+            "user_id": user_id,
+            "session_id": session_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Échec de l'effacement de l'historique Memory RAG: {str(e)}"
         )
